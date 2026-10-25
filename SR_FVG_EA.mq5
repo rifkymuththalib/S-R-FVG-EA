@@ -37,6 +37,7 @@ input ENUM_CONFIRM     InpConfirm         = CONFIRM_LIMIT;
 input bool             InpUseTrendFilter  = true;   // Trade with HTF EMA only
 input int              InpTrendEMA        = 200;
 input int              InpPendingExpiry   = 8;      // Delete unfilled limit orders after N entry bars
+input int              InpSide            = 0;      // 0 = both, 1 = longs only, -1 = shorts only
 
 input group "Risk"
 input double           InpRiskPct         = 1.0;    // Risk per trade, % of equity
@@ -55,7 +56,7 @@ input group "Limits"
 input double           InpDailyLossPct    = 3.0;    // No new trades after this daily loss %
 input int              InpMaxTradesSymbol = 1;
 input int              InpMaxTradesTotal  = 3;
-input int              InpMaxSpreadPts    = 30;
+input double           InpMaxSpreadATR    = 0.15;   // Skip if spread > this x entry ATR (tracks price level; 0 = off)
 
 input group "Session (server time)"
 input int              InpStartHour       = 8;
@@ -101,6 +102,14 @@ void OnDeinit(const int reason)
    IndicatorRelease(hAtrEntry);
    IndicatorRelease(hAtrHTF);
    IndicatorRelease(hEma);
+}
+
+// Optimizer score: net profit per unit of equity drawdown; too few trades is not evidence.
+double OnTester()
+{
+   if(TesterStatistics(STAT_TRADES) < 30)
+      return 0;
+   return TesterStatistics(STAT_PROFIT) / MathMax(1, TesterStatistics(STAT_EQUITY_DD));
 }
 
 void OnTick()
@@ -358,7 +367,7 @@ void OnNewBar()
 //+------------------------------------------------------------------+
 void TrySignal(const Gap &g, bool market)
 {
-   if(!FiltersOK() || (InpUseTrendFilter && !TrendOK(g.bull)))
+   if((InpSide != 0 && (g.bull ? 1 : -1) != InpSide) || !FiltersOK() || (InpUseTrendFilter && !TrendOK(g.bull)))
       return;
    double atr = Buf(hAtrEntry, 1);
    if(atr <= 0)
@@ -438,7 +447,8 @@ bool TrendOK(bool bull)
 
 bool FiltersOK()
 {
-   if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > InpMaxSpreadPts)
+   double atr = Buf(hAtrEntry, 1);
+   if(InpMaxSpreadATR > 0 && (atr <= 0 || (AskP() - BidP()) > InpMaxSpreadATR * atr))
       return false;
 
    MqlDateTime t;

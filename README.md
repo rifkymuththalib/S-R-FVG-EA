@@ -23,3 +23,9 @@ Every number above is an input.
 Strategy Tester (Ctrl+R): pick the EA and symbol, model "Every tick based on real ticks", 2-3 years.
 Run once in visual mode first to check the zones (grey) and gaps (green/red) look right.
 Compare against `InpUseSRFilter = false` to see if the S/R filter adds edge.
+
+## Local backtest (Linux)
+
+`./bt.sh [SYMBOL] [FROM] [TO] [Input=Value ...]` copies the EA into the portable MT5 under `../MT5-trading` (bundled Wine, FTMO history), compiles it, runs the Strategy Tester headless on M15 real ticks and prints a summary. Inputs you don't pass use the code defaults.
+
+    ./bt.sh XAUUSD 2024.01.01 2026.10.01 InpUseSRFilter=false
